@@ -26,3 +26,7 @@ runs/
 /garbages/
 /flagged/
 /experimental/
+
+
+*.wav
+*.pth
