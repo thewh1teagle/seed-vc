@@ -21,6 +21,8 @@ import torchaudio
 import librosa
 import soundfile as sf
 from modules.commons import str2bool
+from pathlib import Path
+from tqdm import tqdm
 
 from hf_utils import load_custom_model_from_hf
 
@@ -255,18 +257,16 @@ def crossfade(chunk1, chunk2, overlap):
     return chunk2
 
 @torch.no_grad()
-def main(args):
-    model, semantic_fn, f0_fn, vocoder_fn, campplus_model, mel_fn, mel_fn_args = load_models(args)
+def process_single_file(source, target_name, model, semantic_fn, f0_fn, vocoder_fn, campplus_model, mel_fn, mel_fn_args, args):
+    """Process a single source file with the given target reference."""
     sr = mel_fn_args['sampling_rate']
     f0_condition = args.f0_condition
     auto_f0_adjust = args.auto_f0_adjust
     pitch_shift = args.semi_tone_shift
-
-    source = args.source
-    target_name = args.target
     diffusion_steps = args.diffusion_steps
     length_adjust = args.length_adjust
     inference_cfg_rate = args.inference_cfg_rate
+    
     source_audio = librosa.load(source, sr=sr)[0]
     ref_audio = librosa.load(target_name, sr=sr)[0]
 
@@ -402,19 +402,72 @@ def main(args):
     time_vc_end = time.time()
     print(f"RTF: {(time_vc_end - time_vc_start) / vc_wave.size(-1) * sr}")
 
-    source_name = os.path.basename(source).split(".")[0]
-    target_name = os.path.basename(target_name).split(".")[0]
+    # Save with the same name as the original file
+    source_basename = os.path.basename(source)
     os.makedirs(args.output, exist_ok=True)
-    output_path = os.path.join(args.output, f"vc_{source_name}_{target_name}_{length_adjust}_{diffusion_steps}_{inference_cfg_rate}.wav")
+    output_path = os.path.join(args.output, source_basename)
     # Use soundfile instead of torchaudio.save to avoid torchcodec/FFmpeg issues
     sf.write(output_path, vc_wave.cpu().squeeze().numpy(), sr)
-    print(f"Saved output to: {output_path}")
+    return output_path
+
+
+@torch.no_grad()
+def main(args):
+    # Load models once
+    model, semantic_fn, f0_fn, vocoder_fn, campplus_model, mel_fn, mel_fn_args = load_models(args)
+    
+    # Determine source files to process
+    if args.input_dir:
+        # Get all WAV files from input directory
+        input_path = Path(args.input_dir)
+        source_files = list(input_path.glob("*.wav")) + list(input_path.glob("*.WAV"))
+        if not source_files:
+            print(f"No WAV files found in {args.input_dir}")
+            return
+        # Sort files by numeric name (without extension)
+        def get_numeric_name(filepath):
+            try:
+                return int(filepath.stem)
+            except ValueError:
+                # If name is not numeric, use 0 (will be sorted first)
+                return 0
+        source_files = sorted(source_files, key=get_numeric_name)
+        print(f"Found {len(source_files)} WAV files in {args.input_dir}")
+    elif args.source:
+        # Single file mode
+        source_files = [Path(args.source)]
+    else:
+        print("Error: Either --source or --input-dir must be provided")
+        return
+    
+    target_name = args.target
+    os.makedirs(args.output, exist_ok=True)
+    
+    # Process each file with tqdm progress bar
+    for source_file in tqdm(source_files, desc="Processing files"):
+        # Check if output file already exists
+        source_basename = os.path.basename(source_file)
+        output_path = os.path.join(args.output, source_basename)
+        if os.path.exists(output_path):
+            print(f"Skipping {source_basename} (output already exists)")
+            continue
+        
+        try:
+            output_path = process_single_file(
+                str(source_file), target_name, model, semantic_fn, f0_fn, 
+                vocoder_fn, campplus_model, mel_fn, mel_fn_args, args
+            )
+            print(f"Saved: {output_path}")
+        except Exception as e:
+            print(f"Error processing {source_file}: {e}")
+            continue
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=str, default="./examples/source/source_s1.wav")
-    parser.add_argument("--target", type=str, default="./examples/reference/s1p1.wav")
+    parser.add_argument("--source", type=str, default=None, help="Path to a single source audio file")
+    parser.add_argument("--input-dir", type=str, default=None, help="Directory containing WAV files to process")
+    parser.add_argument("--target", type=str, default="./examples/reference/s1p1.wav", help="Path to target reference audio file")
     parser.add_argument("--output", type=str, default="./reconstructed")
     parser.add_argument("--diffusion-steps", type=int, default=30)
     parser.add_argument("--length-adjust", type=float, default=1.0)

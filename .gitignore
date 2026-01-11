@@ -30,3 +30,6 @@ runs/
 
 *.wav
 *.pth
+*.7z
+*.csv
+*.whl
