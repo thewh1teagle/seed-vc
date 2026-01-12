@@ -13,12 +13,14 @@ from modules.rmvpe import RMVPE
 from transformers import AutoFeatureExtractor, WhisperModel
 
 class SeedVCWrapper:
-    def __init__(self, device=None):
+    def __init__(self, device=None, checkpoint=None, config=None):
         """
         Initialize the Seed-VC wrapper with all necessary models and configurations.
         
         Args:
             device: torch device to use. If None, will be automatically determined.
+            checkpoint: Path to custom model checkpoint. If None, uses default from HuggingFace.
+            config: Path to custom config file. If None, uses default from HuggingFace.
         """
         # Set device
         if device is None:
@@ -30,6 +32,10 @@ class SeedVCWrapper:
                 self.device = torch.device("cpu")
         else:
             self.device = device
+        
+        # Store custom paths
+        self.custom_checkpoint = checkpoint
+        self.custom_config = config
             
         # Load base model and configuration
         self._load_base_model()
@@ -46,11 +52,15 @@ class SeedVCWrapper:
         
     def _load_base_model(self):
         """Load the base DiT model for voice conversion."""
-        dit_checkpoint_path, dit_config_path = load_custom_model_from_hf(
-            "Plachta/Seed-VC",
-            "DiT_seed_v2_uvit_whisper_small_wavenet_bigvgan_pruned.pth",
-            "config_dit_mel_seed_uvit_whisper_small_wavenet.yml"
-        )
+        if self.custom_checkpoint and self.custom_config:
+            dit_checkpoint_path = self.custom_checkpoint
+            dit_config_path = self.custom_config
+        else:
+            dit_checkpoint_path, dit_config_path = load_custom_model_from_hf(
+                "Plachta/Seed-VC",
+                "DiT_seed_v2_uvit_whisper_small_wavenet_bigvgan_pruned.pth",
+                "config_dit_mel_seed_uvit_whisper_small_wavenet.yml"
+            )
         config = yaml.safe_load(open(dit_config_path, 'r'))
         model_params = recursive_munch(config['model_params'])
         self.model = build_model(model_params, stage='DiT')

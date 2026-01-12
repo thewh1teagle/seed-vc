@@ -33,3 +33,5 @@ runs/
 *.7z
 *.csv
 *.whl
+
+seed-vc-heb/

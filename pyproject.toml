@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "seed-vc"
 version = "0.1.0"
@@ -28,3 +32,7 @@ dependencies = [
     "tqdm>=4.67.1",
     "transformers==4.46.3",
 ]
+
+[tool.setuptools]
+packages = ["modules", "baselines"]
+py-modules = ["inference", "inference_v2", "inference1", "seed_vc_wrapper", "hf_utils", "train", "train_v2", "eval", "app", "app_vc", "app_vc_v2", "app_svc", "real-time-gui", "optimizers"]
