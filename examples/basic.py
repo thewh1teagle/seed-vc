@@ -3,6 +3,9 @@ wget https://huggingface.co/thewh1teagle/seed-vc-heb/resolve/main/seed-vc-heb.7z
 7z x seed-vc-heb.7z
 
 wget https://github.com/thewh1teagle/phonikud-chatterbox/releases/download/asset-files-v1/male1.wav
+
+Note: if uv fails to build scipy from source, install gfortran:
+    sudo apt install gfortran
 """
 
 import soundfile as sf
@@ -51,8 +54,8 @@ def apply_rvc(source, reference, output="output.wav", f0_condition=False, checkp
 if __name__ == "__main__":
     # Basic usage example with custom model
     output_path = apply_rvc(
-        source="male1.wav",
-        reference="examples/reference/s1p2.wav",
+        source="target.wav",
+        reference="ref.wav",
         checkpoint="seed-vc-heb/model.pth",
         config="seed-vc-heb/config_dit_mel_seed_uvit_whisper_small_wavenet.yml"
     )

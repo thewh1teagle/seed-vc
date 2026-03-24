@@ -26,7 +26,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "pyyaml>=6.0.3",
     "resemblyzer>=0.1.4",
-    "scipy==1.13.1",
+    "scipy>=1.13.1",
     "sounddevice==0.5.0",
     "soundfile==0.12.1",
     "tqdm>=4.67.1",
